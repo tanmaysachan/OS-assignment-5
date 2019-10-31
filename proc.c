@@ -12,17 +12,13 @@ struct {
   struct proc proc[NPROC];
 } ptable;
 
+struct spinlock q_lock;
+
 struct proc *queue_0[NPROC];
 struct proc *queue_1[NPROC];
 struct proc *queue_2[NPROC];
 struct proc *queue_3[NPROC];
 struct proc *queue_4[NPROC];
-
-struct spinlock l_q0;
-struct spinlock l_q1;
-struct spinlock l_q2;
-struct spinlock l_q3;
-struct spinlock l_q4;
 
 int heads[5] = {0, 0, 0, 0, 0};
 int tails[5] = {0, 0, 0, 0, 0};
@@ -70,7 +66,46 @@ pop_queue(int qno){
   sizes[qno]--;
 }
 
-void clean_queue(int qno){
+void
+remove_from_queue(struct proc *p)
+{
+  struct proc **queue;
+  int qno = p->cur_queue;
+  switch(qno){
+    case 0:
+      queue = queue_0;
+      break;
+    case 1:
+      queue = queue_1;
+      break;
+    case 2:
+      queue = queue_2;
+      break;
+    case 3:
+      queue = queue_3;
+      break;
+    case 4:
+      queue = queue_4;
+      break;
+    default:
+      panic("invalid queue requested");
+  }
+
+  int i = heads[qno];
+  struct proc *tmp;
+  for(; i != tails[qno]; i = (i+1)%NPROC){
+    tmp = queue[i];
+    if(tmp->pid == p->pid){
+      queue[i] = 0;
+      break;
+    }
+  }
+  clean_queue(qno);
+}
+
+void
+clean_queue(int qno)
+{
   struct proc **queue;
   switch(qno){
     case 0:
@@ -93,15 +128,18 @@ void clean_queue(int qno){
   }
 
   int i;
-  int last_check;
-  for(i = heads[qno], last_check = heads[qno]; i != tails[qno]; i = (i+1)%NPROC){
+  for(i = heads[qno]; i != tails[qno]; i = (i+1)%NPROC){
     if(queue[i] == 0){
       int j;
       struct proc *tmp;
+      struct proc *old;
       tmp = queue[heads[qno]];
       for(j = heads[qno]; j != i; j = (j+1)%NPROC){
-        
+        old = queue[(j+1)%NPROC];
+        queue[(j+1)%NPROC] = tmp;
+        tmp = old;
       }
+      heads[qno]++;
     }
   }
 }
@@ -305,11 +343,10 @@ fork(void)
   acquire(&ptable.lock);
 
   np->state = RUNNABLE;
-  acquire(&l_q0);
-  add_to_queue(np, queue_0, 0);
-  release(&l_q0);
+  acquire(&q_lock);
+  add_to_queue(np, 0);
+  release(&q_lock);
   np->cur_queue = 0;
-  np->atime = ticks;
   np->ltime = 0;
 
   release(&ptable.lock);
@@ -534,16 +571,23 @@ scheduler(void)
           }
         }
         if(to_run){
-          c->proc = to_run;
-          switchuvm(to_run);
-          to_run->state = RUNNING;
+          // Process can be interrupted by trap.c
+          // which is why we need to continually check
+          // if the process was returned in a
+          // runnable state.
+          while(to_run->state == RUNNABLE){
+            c->proc = to_run;
+            switchuvm(to_run);
+            to_run->state = RUNNING;
 
-          swtch(&(c->scheduler), to_run->context);
-          switchkvm();
+            swtch(&(c->scheduler), to_run->context);
+            switchkvm();
 
-          c->proc = 0;
+            c->proc = 0;
+          }
         }
       }
+      break;
 
       case 2:{
         // Priority based scheduler
@@ -571,12 +615,74 @@ scheduler(void)
           }
         }
       }
+      break;
 
       case 3:{
         // MLFQ scheduler
-        // Running highest priority queue first
-        
+        struct proc *to_run = 0;
+        int qchosen;
+        acquire(&q_lock);
+        if(sizes[0] != 0){
+          to_run = queue_0[heads[0]];
+          pop_queue(0);
+          qchosen = 0;
+        }
+        else if(sizes[1] != 0){
+          to_run = queue_1[heads[1]];
+          pop_queue(1);
+          qchosen = 1;
+        }
+        else if(sizes[2] != 0){
+          to_run = queue_2[heads[2]];
+          pop_queue(2);
+          qchosen = 2;
+        }
+        else if(sizes[3] != 0){
+          to_run = queue_3[heads[3]];
+          pop_queue(3);
+          qchosen = 3;
+        }
+        else if(sizes[4] != 0){
+          to_run = queue_4[heads[4]];
+          pop_queue(4);
+          qchosen = 4;
+        }
+        if(to_run != 0){
+          while(1){
+            c->proc = to_run;
+            switchuvm(to_run);
+            to_run->state = RUNNING;
+            to_run->ltime = ticks;
+
+            swtch(&(c->scheduler), to_run->context);
+            switchkvm();
+
+            c->proc = 0;
+
+            if(to_run->state == RUNNABLE && !to_run->slice_exhausted){
+              continue;
+            }
+            if(to_run->state == RUNNABLE && to_run->slice_exhausted
+               && to_run->cur_queue != 4){
+              to_run->cur_queue++;
+              add_to_queue(to_run, qchosen+1);
+              break;
+            }
+          }
+        }
+        for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+          update_times(p);
+          if(p->state != RUNNABLE)
+            continue;
+
+          if(ticks - p->ltime > 50 && p->cur_queue != 0){
+            remove_from_queue(p);
+            add_to_queue(p, p->cur_queue-1);
+          }
+        }
+        release(&q_lock);
       }
+      break;
 
       case 4:{
         // original round-robin based scheduler
@@ -600,6 +706,9 @@ scheduler(void)
           c->proc = 0;
         }
       }
+      break;
+      default:
+        panic("invalid SCHEDFLAG");
     }
     release(&ptable.lock);
 
