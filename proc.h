@@ -53,7 +53,11 @@ struct proc {
   uint etime;                  // Process end time
   uint rtime;                  // Total process run time
   uint last_check;             // Time when the process's times were last updated
-  int priority;               // Scheduling priority of the process
+  uint ltime;                  // Time when the process was last running
+  int priority;                // Scheduling priority of the process
+  uint cur_queue;              // Current queue the process is in for MLFQ scheduling
+  uint atime;                  // The time the process was added in the queue
+  uint slice_exhausted;        // Tells us if the process consumed the time slice
 };
 
 // Process memory is laid out contiguously, low addresses first:

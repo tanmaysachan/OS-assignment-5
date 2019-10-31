@@ -12,6 +12,22 @@ struct {
   struct proc proc[NPROC];
 } ptable;
 
+struct proc *queue_0[NPROC];
+struct proc *queue_1[NPROC];
+struct proc *queue_2[NPROC];
+struct proc *queue_3[NPROC];
+struct proc *queue_4[NPROC];
+
+struct spinlock l_q0;
+struct spinlock l_q1;
+struct spinlock l_q2;
+struct spinlock l_q3;
+struct spinlock l_q4;
+
+int heads[5] = {0, 0, 0, 0, 0};
+int tails[5] = {0, 0, 0, 0, 0};
+int sizes[5] = {0, 0, 0, 0, 0};
+
 static struct proc *initproc;
 
 int nextpid = 1;
@@ -19,6 +35,76 @@ extern void forkret(void);
 extern void trapret(void);
 
 static void wakeup1(void *chan);
+
+void
+add_to_queue(struct proc *p, int qno)
+{
+  struct proc **queue;
+  switch(qno){
+    case 0:
+      queue = queue_0;
+      break;
+    case 1:
+      queue = queue_1;
+      break;
+    case 2:
+      queue = queue_2;
+      break;
+    case 3:
+      queue = queue_3;
+      break;
+    case 4:
+      queue = queue_4;
+      break;
+    default:
+      panic("invalid queue requested");
+  }
+  queue[tails[qno]] = p;
+  tails[qno] = (tails[qno] + 1) % NPROC;
+  sizes[qno]++;
+}
+
+void
+pop_queue(int qno){
+  heads[qno] = (heads[qno] + 1) % NPROC;
+  sizes[qno]--;
+}
+
+void clean_queue(int qno){
+  struct proc **queue;
+  switch(qno){
+    case 0:
+      queue = queue_0;
+      break;
+    case 1:
+      queue = queue_1;
+      break;
+    case 2:
+      queue = queue_2;
+      break;
+    case 3:
+      queue = queue_3;
+      break;
+    case 4:
+      queue = queue_4;
+      break;
+    default:
+      panic("invalid queue requested");
+  }
+
+  int i;
+  int last_check;
+  for(i = heads[qno], last_check = heads[qno]; i != tails[qno]; i = (i+1)%NPROC){
+    if(queue[i] == 0){
+      int j;
+      struct proc *tmp;
+      tmp = queue[heads[qno]];
+      for(j = heads[qno]; j != i; j = (j+1)%NPROC){
+        
+      }
+    }
+  }
+}
 
 void
 pinit(void)
@@ -219,6 +305,12 @@ fork(void)
   acquire(&ptable.lock);
 
   np->state = RUNNABLE;
+  acquire(&l_q0);
+  add_to_queue(np, queue_0, 0);
+  release(&l_q0);
+  np->cur_queue = 0;
+  np->atime = ticks;
+  np->ltime = 0;
 
   release(&ptable.lock);
 
@@ -378,6 +470,17 @@ setpriority(int priority)
   return old_p;
 }
 
+// update process rtime and last_check time
+void
+update_times(struct proc* p)
+{
+  if(p->state == RUNNING)
+    p->rtime += ticks - p->last_check;
+  p->last_check = ticks;
+}
+
+
+
 //PAGEBREAK: 42
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
@@ -414,13 +517,6 @@ scheduler(void)
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
 
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state == RUNNING){
-        p->rtime += ticks - p->last_check;
-      }
-      p->last_check = ticks;
-    }
-
     switch(scheduler_strat){
 
       case 1:{
@@ -428,6 +524,7 @@ scheduler(void)
         struct proc *to_run = 0;
         int min_ctime = ticks + 1000;
         for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+          update_times(p);
           if(p->state != RUNNABLE)
             continue;
           
@@ -452,12 +549,14 @@ scheduler(void)
         // Priority based scheduler
         int priority_chosen = 101;
         for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+          update_times(p);
           if(p->state != RUNNABLE)
             continue;
           if(p->priority < priority_chosen)
             priority_chosen = p->priority;
         }
         for(p = ptable.proc; p < &ptable.proc[NPROC] && priority_chosen != 101; p++){
+          update_times(p);
           if(p->state != RUNNABLE)
             continue;
           if(p->priority == priority_chosen){
@@ -475,12 +574,14 @@ scheduler(void)
 
       case 3:{
         // MLFQ scheduler
+        // Running highest priority queue first
         
       }
 
       case 4:{
         // original round-robin based scheduler
         for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+          update_times(p);
           if(p->state != RUNNABLE)
             continue;
 
