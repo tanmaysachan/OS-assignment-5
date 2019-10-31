@@ -91,6 +91,7 @@ found:
   p->ctime = ticks;
   p->rtime = 0;
   p->last_check = ticks;
+  p->priority = 60;
 
   release(&ptable.lock);
 
@@ -363,6 +364,20 @@ waitx(int* wtime, int* rtime)
   }
 }
 
+int
+setpriority(int priority)
+{
+  struct proc *curproc = myproc();
+  if(priority > 100 || priority < 0)
+    return -1;
+  int old_p = curproc->priority;
+  curproc->priority = priority;
+  if(priority < old_p){
+    yield();
+  }
+  return old_p;
+}
+
 //PAGEBREAK: 42
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
@@ -377,7 +392,21 @@ scheduler(void)
   struct proc *p;
   struct cpu *c = mycpu();
   c->proc = 0;
-  
+
+  int scheduler_strat = -1;
+  if(SCHEDFLAG[0] == 'F'){
+    scheduler_strat = 1;
+  }
+  else if(SCHEDFLAG[0] == 'P'){
+    scheduler_strat = 2;
+  }
+  else if(SCHEDFLAG[0] == 'M'){
+    scheduler_strat = 3;
+  }
+  else if(SCHEDFLAG[0] == 'R'){
+    scheduler_strat = 4;
+  }
+
   for(;;){
     // Enable interrupts on this processor.
     sti();
@@ -392,23 +421,84 @@ scheduler(void)
       p->last_check = ticks;
     }
 
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE)
-        continue;
+    switch(scheduler_strat){
 
-      // Switch to chosen process.  It is the process's job
-      // to release ptable.lock and then reacquire it
-      // before jumping back to us.
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
+      case 1:{
+        // FCFS scheduler
+        struct proc *to_run = 0;
+        int min_ctime = ticks + 1000;
+        for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+          if(p->state != RUNNABLE)
+            continue;
+          
+          if(p->ctime < min_ctime){
+            min_ctime = p->ctime;
+            to_run = p;
+          }
+        }
+        if(to_run){
+          c->proc = to_run;
+          switchuvm(to_run);
+          to_run->state = RUNNING;
 
-      swtch(&(c->scheduler), p->context);
-      switchkvm();
+          swtch(&(c->scheduler), to_run->context);
+          switchkvm();
 
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      c->proc = 0;
+          c->proc = 0;
+        }
+      }
+
+      case 2:{
+        // Priority based scheduler
+        int priority_chosen = 101;
+        for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+          if(p->state != RUNNABLE)
+            continue;
+          if(p->priority < priority_chosen)
+            priority_chosen = p->priority;
+        }
+        for(p = ptable.proc; p < &ptable.proc[NPROC] && priority_chosen != 101; p++){
+          if(p->state != RUNNABLE)
+            continue;
+          if(p->priority == priority_chosen){
+            c->proc = p;
+            switchuvm(p);
+            p->state = RUNNING;
+
+            swtch(&(c->scheduler), p->context);
+            switchkvm();
+
+            c->proc = 0;
+          }
+        }
+      }
+
+      case 3:{
+        // MLFQ scheduler
+        
+      }
+
+      case 4:{
+        // original round-robin based scheduler
+        for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+          if(p->state != RUNNABLE)
+            continue;
+
+          // Switch to chosen process.  It is the process's job
+          // to release ptable.lock and then reacquire it
+          // before jumping back to us.
+          c->proc = p;
+          switchuvm(p);
+          p->state = RUNNING;
+
+          swtch(&(c->scheduler), p->context);
+          switchkvm();
+
+          // Process is done running for now.
+          // It should have changed its p->state before coming back.
+          c->proc = 0;
+        }
+      }
     }
     release(&ptable.lock);
 

@@ -27,6 +27,15 @@ sys_wait(void)
 }
 
 int
+sys_setpriority(void)
+{
+  int p;
+  if(argint(0, &p) < 0)
+    return -1;
+  return setpriority(p);
+}
+
+int
 sys_waitx(void)
 {
   int* wtime;
