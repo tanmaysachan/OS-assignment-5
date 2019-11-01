@@ -33,8 +33,6 @@ main(int argc, char *argv[])
   for (j = 0; j < 10; j++) {
     int pid = fork();
     if (pid == 0) {
-        int new_priority = j+10;
-        setpriority(new_priority);
         volatile int i;
         /* printf(1, "process with priority %d chosen\n", new_priority); */
         for(i = 0; i < 100000000; i++){

@@ -104,27 +104,22 @@ trap(struct trapframe *tf)
   // Force process to give up CPU on clock tick.
   // If interrupts were on while locks held, would need to check nlock.
   if(myproc() && myproc()->state == RUNNING &&
-     tf->trapno == T_IRQ0+IRQ_TIMER && SCHEDFLAG[0] != 'F' && SCHEDFLAG[0] != 'M'){
+     tf->trapno == T_IRQ0+IRQ_TIMER && SCHEDFLAG[0] != 'F' && SCHEDFLAG[0] != 'M')
     yield();
-  }
 
-  uint yielded = 0;
   if(SCHEDFLAG[0] == 'M'){
     if(myproc()->cur_queue == 0){
       if(myproc() && myproc()->state == RUNNING &&
           tf->trapno == T_IRQ0+IRQ_TIMER){
+        myproc()->slice_exhausted = 1;
         yield();
-        yielded = 1;
-        goto YIELDED;
       }
     }
     else if(myproc()->cur_queue == 1){
       if(cnt_to_yield == 1){
         myproc()->slice_exhausted = 1;
-        yield();
         cnt_to_yield = 0;
-        yielded = 1;
-        goto YIELDED;
+        yield();
       }
       if(myproc() && myproc()->state == RUNNING &&
           tf->trapno == T_IRQ0+IRQ_TIMER)
@@ -133,10 +128,8 @@ trap(struct trapframe *tf)
     else if(myproc()->cur_queue == 2){
       if(cnt_to_yield == 3){
         myproc()->slice_exhausted = 1;
-        yield();
         cnt_to_yield = 0;
-        yielded = 1;
-        goto YIELDED;
+        yield();
       }
       if(myproc() && myproc()->state == RUNNING &&
           tf->trapno == T_IRQ0+IRQ_TIMER)
@@ -145,10 +138,8 @@ trap(struct trapframe *tf)
     else if(myproc()->cur_queue == 3){
       if(cnt_to_yield == 7){
         myproc()->slice_exhausted = 1;
-        yield();
         cnt_to_yield = 0;
-        yielded = 1;
-        goto YIELDED;
+        yield();
       }
       if(myproc() && myproc()->state == RUNNING &&
           tf->trapno == T_IRQ0+IRQ_TIMER)
@@ -157,21 +148,14 @@ trap(struct trapframe *tf)
     else if(myproc()->cur_queue == 4){
       if(cnt_to_yield == 15){
         myproc()->slice_exhausted = 1;
-        yield();
         cnt_to_yield = 0;
-        yielded = 1;
-        goto YIELDED;
+        yield();
       }
       if(myproc() && myproc()->state == RUNNING &&
           tf->trapno == T_IRQ0+IRQ_TIMER)
         cnt_to_yield++;
     }
   }
-
-YIELDED:
-  // If process yields, it exhausted the slice allotted
-  if(yielded)
-    myproc()->slice_exhausted = 1;
 
   // Check if the process has been killed since we yielded
   if(myproc() && myproc()->killed && (tf->cs&3) == DPL_USER)

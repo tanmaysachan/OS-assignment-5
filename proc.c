@@ -12,8 +12,6 @@ struct {
   struct proc proc[NPROC];
 } ptable;
 
-struct spinlock q_lock;
-
 struct proc *queue_0[NPROC];
 struct proc *queue_1[NPROC];
 struct proc *queue_2[NPROC];
@@ -58,6 +56,7 @@ add_to_queue(struct proc *p, int qno)
   queue[tails[qno]] = p;
   tails[qno] = (tails[qno] + 1) % NPROC;
   sizes[qno]++;
+  p->cur_queue = qno;
 }
 
 void
@@ -97,6 +96,7 @@ remove_from_queue(struct proc *p)
     tmp = queue[i];
     if(tmp->pid == p->pid){
       queue[i] = 0;
+      sizes[qno]--;
       break;
     }
   }
@@ -343,9 +343,7 @@ fork(void)
   acquire(&ptable.lock);
 
   np->state = RUNNABLE;
-  acquire(&q_lock);
   add_to_queue(np, 0);
-  release(&q_lock);
   np->cur_queue = 0;
   np->ltime = 0;
 
@@ -516,8 +514,6 @@ update_times(struct proc* p)
   p->last_check = ticks;
 }
 
-
-
 //PAGEBREAK: 42
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
@@ -533,7 +529,7 @@ scheduler(void)
   struct cpu *c = mycpu();
   c->proc = 0;
 
-  int scheduler_strat = -1;
+  int scheduler_strat = 4;
   if(SCHEDFLAG[0] == 'F'){
     scheduler_strat = 1;
   }
@@ -542,9 +538,6 @@ scheduler(void)
   }
   else if(SCHEDFLAG[0] == 'M'){
     scheduler_strat = 3;
-  }
-  else if(SCHEDFLAG[0] == 'R'){
-    scheduler_strat = 4;
   }
 
   for(;;){
@@ -571,20 +564,14 @@ scheduler(void)
           }
         }
         if(to_run){
-          // Process can be interrupted by trap.c
-          // which is why we need to continually check
-          // if the process was returned in a
-          // runnable state.
-          while(to_run->state == RUNNABLE){
-            c->proc = to_run;
-            switchuvm(to_run);
-            to_run->state = RUNNING;
+          c->proc = to_run;
+          switchuvm(to_run);
+          to_run->state = RUNNING;
 
-            swtch(&(c->scheduler), to_run->context);
-            switchkvm();
+          swtch(&(c->scheduler), to_run->context);
+          switchkvm();
 
-            c->proc = 0;
-          }
+          c->proc = 0;
         }
       }
       break;
@@ -620,32 +607,25 @@ scheduler(void)
       case 3:{
         // MLFQ scheduler
         struct proc *to_run = 0;
-        int qchosen;
-        acquire(&q_lock);
         if(sizes[0] != 0){
           to_run = queue_0[heads[0]];
           pop_queue(0);
-          qchosen = 0;
         }
         else if(sizes[1] != 0){
           to_run = queue_1[heads[1]];
           pop_queue(1);
-          qchosen = 1;
         }
         else if(sizes[2] != 0){
           to_run = queue_2[heads[2]];
           pop_queue(2);
-          qchosen = 2;
         }
         else if(sizes[3] != 0){
           to_run = queue_3[heads[3]];
           pop_queue(3);
-          qchosen = 3;
         }
         else if(sizes[4] != 0){
           to_run = queue_4[heads[4]];
           pop_queue(4);
-          qchosen = 4;
         }
         if(to_run != 0){
           while(1){
@@ -662,10 +642,14 @@ scheduler(void)
             if(to_run->state == RUNNABLE && !to_run->slice_exhausted){
               continue;
             }
-            if(to_run->state == RUNNABLE && to_run->slice_exhausted
-               && to_run->cur_queue != 4){
-              to_run->cur_queue++;
-              add_to_queue(to_run, qchosen+1);
+            if(to_run->state == RUNNABLE && to_run->slice_exhausted){
+              if(to_run->cur_queue != 4){
+                to_run->cur_queue++;
+                add_to_queue(to_run, to_run->cur_queue+1);
+              }
+              else{
+                add_to_queue(to_run, to_run->cur_queue);
+              }
               break;
             }
           }
@@ -676,11 +660,11 @@ scheduler(void)
             continue;
 
           if(ticks - p->ltime > 50 && p->cur_queue != 0){
+            p->ltime = ticks;
             remove_from_queue(p);
             add_to_queue(p, p->cur_queue-1);
           }
         }
-        release(&q_lock);
       }
       break;
 
@@ -708,10 +692,9 @@ scheduler(void)
       }
       break;
       default:
-        panic("invalid SCHEDFLAG");
+        panic("invalid scheduling");
     }
     release(&ptable.lock);
-
   }
 }
 
@@ -820,8 +803,10 @@ wakeup1(void *chan)
   struct proc *p;
 
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    if(p->state == SLEEPING && p->chan == chan)
+    if(p->state == SLEEPING && p->chan == chan){
       p->state = RUNNABLE;
+      add_to_queue(p, p->cur_queue);
+    }
 }
 
 // Wake up all processes sleeping on chan.
