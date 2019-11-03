@@ -475,8 +475,8 @@ waitx(int* wtime, int* rtime)
         p->state = UNUSED;
         p->etime = ticks;
         release(&ptable.lock);
-        *rtime = p->rtime;
-        *wtime = ticks - p->ctime - p->rtime;
+        *rtime = curproc->rtime;
+        *wtime = ticks - curproc->ctime - curproc->rtime;
         return pid;
       }
     }
@@ -594,6 +594,7 @@ scheduler(void)
           if(p->state != RUNNABLE)
             continue;
           if(p->priority == priority_chosen){
+            cprintf("priority chosen to run %d\n", priority_chosen);
             c->proc = p;
             switchuvm(p);
             p->state = RUNNING;
