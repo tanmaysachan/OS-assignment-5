@@ -57,7 +57,6 @@ add_to_queue(struct proc *p, int qno)
   tails[qno] = (tails[qno] + 1) % NPROC;
   sizes[qno]++;
   p->cur_queue = qno;
-  cprintf("Process with pid %d and name \"%s\" entered queue %d\n", p->pid, p->name, p->cur_queue);
 }
 
 void
@@ -96,7 +95,6 @@ remove_from_queue(struct proc *p)
   for(; i != tails[qno]; i = (i+1)%NPROC){
     tmp = queue[i];
     if(tmp->pid == p->pid){
-  cprintf("Process with pid %d and name \"%s\" removed from queue %d\n", p->pid, p->name, p->cur_queue);
       queue[i] = 0;
       sizes[qno]--;
       break;
@@ -144,7 +142,6 @@ clean_queue(int qno)
       heads[qno]++;
     }
   }
-  cprintf("Queue %d has been cleaned\n", qno);
 }
 
 void
@@ -282,7 +279,6 @@ userinit(void)
   p->state = RUNNABLE;
   p->cur_queue = 0;
   add_to_queue(p, 0);
-  cprintf("lol added to queue\n");
   p->ltime = ticks;
 
   release(&ptable.lock);
@@ -634,7 +630,6 @@ scheduler(void)
           to_run = queue_4[heads[4]];
           pop_queue(4);
         }
-  /* cprintf("Process with pid %d and name \"%s\" was selected to be run from queue%d\n", to_run->pid, to_run->name, to_run->cur_queue); */
         if(to_run != 0){
           while(1){
             c->proc = to_run;
