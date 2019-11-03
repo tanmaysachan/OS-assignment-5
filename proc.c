@@ -51,12 +51,13 @@ add_to_queue(struct proc *p, int qno)
       queue = queue_4;
       break;
     default:
-      panic("invalid queue requested");
+      panic("invalid queue requested in add_to_queue");
   }
   queue[tails[qno]] = p;
   tails[qno] = (tails[qno] + 1) % NPROC;
   sizes[qno]++;
   p->cur_queue = qno;
+  cprintf("Process with pid %d and name \"%s\" entered queue %d\n", p->pid, p->name, p->cur_queue);
 }
 
 void
@@ -87,7 +88,7 @@ remove_from_queue(struct proc *p)
       queue = queue_4;
       break;
     default:
-      panic("invalid queue requested");
+      panic("invalid queue requested in remove_from_queue");
   }
 
   int i = heads[qno];
@@ -95,6 +96,7 @@ remove_from_queue(struct proc *p)
   for(; i != tails[qno]; i = (i+1)%NPROC){
     tmp = queue[i];
     if(tmp->pid == p->pid){
+  cprintf("Process with pid %d and name \"%s\" removed from queue %d\n", p->pid, p->name, p->cur_queue);
       queue[i] = 0;
       sizes[qno]--;
       break;
@@ -124,7 +126,7 @@ clean_queue(int qno)
       queue = queue_4;
       break;
     default:
-      panic("invalid queue requested");
+      panic("invalid queue requested in clean_queue");
   }
 
   int i;
@@ -142,6 +144,7 @@ clean_queue(int qno)
       heads[qno]++;
     }
   }
+  cprintf("Queue %d has been cleaned\n", qno);
 }
 
 void
@@ -277,6 +280,10 @@ userinit(void)
   acquire(&ptable.lock);
 
   p->state = RUNNABLE;
+  p->cur_queue = 0;
+  add_to_queue(p, 0);
+  cprintf("lol added to queue\n");
+  p->ltime = ticks;
 
   release(&ptable.lock);
 }
@@ -345,7 +352,7 @@ fork(void)
   np->state = RUNNABLE;
   add_to_queue(np, 0);
   np->cur_queue = 0;
-  np->ltime = 0;
+  np->ltime = ticks;
 
   release(&ptable.lock);
 
@@ -627,6 +634,7 @@ scheduler(void)
           to_run = queue_4[heads[4]];
           pop_queue(4);
         }
+  /* cprintf("Process with pid %d and name \"%s\" was selected to be run from queue%d\n", to_run->pid, to_run->name, to_run->cur_queue); */
         if(to_run != 0){
           while(1){
             c->proc = to_run;
@@ -644,12 +652,14 @@ scheduler(void)
             }
             if(to_run->state == RUNNABLE && to_run->slice_exhausted){
               if(to_run->cur_queue != 4){
-                to_run->cur_queue++;
                 add_to_queue(to_run, to_run->cur_queue+1);
               }
               else{
                 add_to_queue(to_run, to_run->cur_queue);
               }
+              break;
+            }
+            if(to_run->state != RUNNABLE){
               break;
             }
           }
@@ -781,6 +791,7 @@ sleep(void *chan, struct spinlock *lk)
   // Go to sleep.
   p->chan = chan;
   p->state = SLEEPING;
+  remove_from_queue(p);
 
   sched();
 

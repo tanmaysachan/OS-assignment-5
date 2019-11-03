@@ -55,7 +55,7 @@ struct proc {
   uint last_check;             // Time when the process's times were last updated
   uint ltime;                  // Time when the process was last running
   int priority;                // Scheduling priority of the process
-  int cur_queue;              // Current queue the process is in for MLFQ scheduling
+  int cur_queue;               // Current queue the process is in for MLFQ scheduling
   uint slice_exhausted;        // Tells us if the process consumed the time slice
 };
 

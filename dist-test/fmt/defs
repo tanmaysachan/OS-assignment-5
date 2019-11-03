@@ -1,0 +1,546 @@
+0103 pde_t
+0150 NPROC 64
+0151 KSTACKSIZE 4096
+0152 NCPU 8
+0153 NOFILE 16
+0154 NFILE 100
+0155 NINODE 50
+0156 NDEV 10
+0157 ROOTDEV 1
+0158 MAXARG 32
+0159 MAXOPBLOCKS 10
+0160 LOGSIZE
+0161 NBUF
+0162 FSSIZE 1000
+0202 EXTMEM 0x100000
+0203 PHYSTOP 0xE000000
+0204 DEVSPACE 0xFE000000
+0207 KERNBASE 0x80000000
+0208 KERNLINK
+0210 V2P
+0211 P2V
+0213 V2P_WO
+0214 P2V_WO
+0448 NELEM
+0602 trapframe
+0654 SEG_NULLASM \
+0660 SEG_ASM
+0665 STA_X 0x8
+0666 STA_W 0x2
+0667 STA_R 0x2
+0704 FL_IF 0x00000200
+0707 CR0_PE 0x00000001
+0708 CR0_WP 0x00010000
+0709 CR0_PG 0x80000000
+0711 CR4_PSE 0x00000010
+0714 SEG_KCODE 1
+0715 SEG_KDATA 2
+0716 SEG_UCODE 3
+0717 SEG_UDATA 4
+0718 SEG_TSS 5
+0721 NSEGS 6
+0725 segdesc
+0751 SEG
+0755 SEG16
+0761 DPL_USER 0x3
+0764 STA_X 0x8
+0765 STA_W 0x2
+0766 STA_R 0x2
+0769 STS_T32A 0x9
+0770 STS_IG32 0xE
+0771 STS_TG32 0xF
+0782 PDX
+0785 PTX
+0788 PGADDR
+0791 NPDENTRIES 1024
+0792 NPTENTRIES 1024
+0793 PGSIZE 4096
+0795 PTXSHIFT 12
+0796 PDXSHIFT 22
+0798 PGROUNDUP
+0799 PGROUNDDOWN
+0801 PTE_P 0x001
+0802 PTE_W 0x002
+0803 PTE_U 0x004
+0804 PTE_PS 0x080
+0807 PTE_ADDR
+0808 PTE_FLAGS
+0811 pte_t
+0814 taskstate
+0855 gatedesc
+0875 SETGATE
+0902 ELF_MAGIC 0x464C457FU
+0905 elfhdr
+0924 proghdr
+0936 ELF_PROG_LOAD 1
+0939 ELF_PROG_FLAG_EXEC 1
+0940 ELF_PROG_FLAG_WRITE 2
+0941 ELF_PROG_FLAG_READ 4
+0950 rtcdate
+1029 multiboot_header
+1044 entry
+1123 start
+1351 spinlock
+2001 cpu
+2025 context
+2033 RUNNING
+2036 proc
+2126 nextpid
+3059 swtch
+3115 run
+3203 T_DIVIDE 0
+3204 T_DEBUG 1
+3205 T_NMI 2
+3206 T_BRKPT 3
+3207 T_OFLOW 4
+3208 T_BOUND 5
+3209 T_ILLOP 6
+3210 T_DEVICE 7
+3211 T_DBLFLT 8
+3213 T_TSS 10
+3214 T_SEGNP 11
+3215 T_STACK 12
+3216 T_GPFLT 13
+3217 T_PGFLT 14
+3219 T_FPERR 16
+3220 T_ALIGN 17
+3221 T_MCHK 18
+3222 T_SIMDERR 19
+3226 T_SYSCALL 64
+3227 T_DEFAULT 500
+3229 T_IRQ0 32
+3231 IRQ_TIMER 0
+3232 IRQ_KBD 1
+3233 IRQ_COM1 4
+3234 IRQ_IDE 14
+3235 IRQ_ERROR 19
+3236 IRQ_SPURIOUS 31
+3304 alltraps
+3324 trapret
+3363 tickslock
+3364 ticks
+3365 cnt_to_yield
+3551 SYS_fork 1
+3552 SYS_exit 2
+3553 SYS_wait 3
+3554 SYS_pipe 4
+3555 SYS_read 5
+3556 SYS_kill 6
+3557 SYS_exec 7
+3558 SYS_fstat 8
+3559 SYS_chdir 9
+3560 SYS_dup 10
+3561 SYS_getpid 11
+3562 SYS_sbrk 12
+3563 SYS_sleep 13
+3564 SYS_uptime 14
+3565 SYS_open 15
+3566 SYS_write 16
+3567 SYS_mknod 17
+3568 SYS_unlink 18
+3569 SYS_link 19
+3570 SYS_mkdir 20
+3571 SYS_close 21
+3572 SYS_waitx 22
+3573 SYS_setpriority 23
+3950 buf
+3961 B_VALID 0x2
+3962 B_DIRTY 0x4
+4001 sleeplock
+4050 O_RDONLY 0x000
+4051 O_WRONLY 0x001
+4052 O_RDWR 0x002
+4053 O_CREATE 0x200
+4100 T_DIR 1
+4101 T_FILE 2
+4102 T_DEV 3
+4104 stat
+4154 ROOTINO 1
+4155 BSIZE 512
+4163 superblock
+4173 NDIRECT 12
+4174 NINDIRECT
+4175 MAXFILE
+4178 dinode
+4201 IPB
+4204 IBLOCK
+4207 BPB
+4210 BBLOCK
+4213 DIRSIZ 14
+4215 dirent
+4250 file
+4262 inode
+4279 devsw
+4286 CONSOLE 1
+4315 SECTOR_SIZE 512
+4316 IDE_BSY 0x80
+4317 IDE_DRDY 0x40
+4318 IDE_DF 0x20
+4319 IDE_ERR 0x01
+4321 IDE_CMD_READ 0x20
+4322 IDE_CMD_WRITE 0x30
+4323 IDE_CMD_RDMUL 0xc4
+4324 IDE_CMD_WRMUL 0xc5
+4330 idelock
+4333 havedisk1
+4783 logheader
+4788 log
+4800 log
+5023 min
+5027 sb
+6610 PIPESIZE 512
+6612 pipe
+6902 mp
+6913 mpconf
+6928 mpproc
+6939 mpioapic
+6951 MPPROC 0x00
+6952 MPBUS 0x01
+6953 MPIOAPIC 0x02
+6954 MPIOINTR 0x03
+6955 MPLINTR 0x04
+7014 ncpu
+7015 ioapicid
+7163 ID
+7164 VER
+7165 TPR
+7166 EOI
+7167 SVR
+7169 ESR
+7170 ICRLO
+7180 ICRHI
+7181 TIMER
+7184 PCINT
+7185 LINT0
+7186 LINT1
+7187 ERROR
+7189 TICR
+7190 TCCR
+7191 TDCR
+7273 CMOS_PORT 0x70
+7274 CMOS_RETURN 0x71
+7312 CMOS_STATA 0x0a
+7313 CMOS_STATB 0x0b
+7314 CMOS_UIP
+7316 SECS 0x00
+7317 MINS 0x02
+7318 HOURS 0x04
+7319 DAY 0x07
+7320 MONTH 0x08
+7321 YEAR 0x09
+7373 CONV
+7408 IOAPIC 0xFEC00000
+7410 REG_ID 0x00
+7411 REG_VER 0x01
+7412 REG_TABLE 0x10
+7419 INT_DISABLED 0x00010000
+7420 INT_LEVEL 0x00008000
+7421 INT_ACTIVELOW 0x00002000
+7422 INT_LOGICAL 0x00000800
+7427 ioapic
+7502 KBSTATP 0x64
+7503 KBS_DIB 0x01
+7504 KBDATAP 0x60
+7506 NO 0
+7508 SHIFT
+7509 CTL
+7510 ALT
+7512 CAPSLOCK
+7513 NUMLOCK
+7514 SCROLLLOCK
+7516 E0ESC
+7519 KEY_HOME 0xE0
+7520 KEY_END 0xE1
+7521 KEY_UP 0xE2
+7522 KEY_DN 0xE3
+7523 KEY_LF 0xE4
+7524 KEY_RT 0xE5
+7525 KEY_PGUP 0xE6
+7526 KEY_PGDN 0xE7
+7527 KEY_INS 0xE8
+7528 KEY_DEL 0xE9
+7531 C
+7719 panicked
+7824 BACKSPACE 0x100
+7825 CRTPORT 0x3d4
+7879 INPUT_BUF 128
+7887 C
+8014 COM1 0x3f8
+8016 uart
+8109 start
+8153 SYSCALL
+8257 EXEC 1
+8258 REDIR 2
+8259 PIPE 3
+8260 LIST 4
+8261 BACK 5
+8263 MAXARGS 10
+8265 cmd
+8269 execcmd
+8275 redircmd
+8284 pipecmd
+8290 listcmd
+8296 backcmd
+8811 start
+8912 SECTSIZE 512
+0453 inb
+0462 insl
+0471 outb
+0477 outw
+0483 outsl
+0492 stosb
+0501 stosl
+0512 lgdt
+0526 lidt
+0538 ltr
+0544 readeflags
+0551 loadgs
+0557 cli
+0563 sti
+0569 xchg
+0582 rcr2
+0590 lcr3
+1241 mpenter
+1252 mpmain
+1264 startothers
+1305 __attribute__
+1412 initlock
+1424 acquire
+1452 release
+1477 getcallerpcs
+1502 holding
+1517 pushcli
+1529 popcli
+1565 seginit
+1585 walkpgdir
+1610 mappages
+1668 setupkvm
+1690 kvmalloc
+1703 switchkvm
+1710 switchuvm
+1736 inituvm
+1753 loaduvm
+1777 allocuvm
+1811 deallocuvm
+1853 freevm
+1872 clearpteu
+1885 copyuvm
+1918 uva2ka
+1934 copyout
+2133 add_to_queue
+2162 pop_queue
+2168 remove_from_queue
+2206 clean_queue
+2251 pinit
+2258 cpuid
+2265 mycpu
+2285 myproc
+2305 allocproc
+2355 userinit
+2403 growproc
+2425 fork
+2475 exit
+2522 wait
+2565 waitx
+2614 setpriority
+2629 update_times
+2658 scheduler
+2841 sched
+2861 yield
+2872 forkret
+2903 sleep
+2953 wakeup1
+2966 wakeup
+2977 kill
+3004 procdump
+3131 kinit1
+3139 kinit2
+3151 freerange
+3163 kfree
+3186 kalloc
+3368 tvinit
+3380 idtinit
+3386 trap
+3617 fetchint
+3631 fetchstr
+3652 argint
+3661 argptr
+3679 argstr
+3751 syscall
+3810 sys_fork
+3816 sys_exit
+3823 sys_wait
+3829 sys_setpriority
+3838 sys_waitx
+3851 sys_kill
+3861 sys_getpid
+3867 sys_sbrk
+3881 sys_sleep
+3903 sys_uptime
+4338 idewait
+4351 ideinit
+4374 idestart
+4404 ideintr
+4437 iderw
+4538 binit
+4560 bget
+4602 bread
+4615 bwrite
+4626 brelse
+4663 initsleeplock
+4672 acquiresleep
+4684 releasesleep
+4701 holdingsleep
+4806 initlog
+4822 install_trans
+4838 read_head
+4854 write_head
+4868 recover_from_log
+4878 begin_op
+4903 end_op
+4935 write_log
+4951 commit
+4972 log_write
+5031 readsb
+5052 bzero
+5066 balloc
+5102 bfree
+5192 iinit
+5213 ialloc
+5239 iupdate
+5260 iget
+5303 idup
+5314 ilock
+5342 iunlock
+5358 iput
+5382 iunlockput
+5410 bmap
+5456 itrunc
+5488 stati
+5503 readi
+5531 writei
+5568 namecmp
+5576 dirlookup
+5602 dirlink
+5645 skipelem
+5674 namex
+5709 namei
+5716 nameiparent
+5769 fileinit
+5776 filealloc
+5802 filedup
+5814 fileclose
+5852 filestat
+5865 fileread
+5885 filewrite
+5971 argfd
+6003 fdalloc
+6018 sys_dup
+6032 sys_read
+6051 sys_write
+6063 sys_close
+6076 sys_fstat
+6102 sys_link
+6152 isdirempty
+6167 sys_unlink
+6224 create
+6267 sys_open
+6319 sys_mkdir
+6335 sys_mknod
+6355 sys_chdir
+6380 sys_exec
+6406 sys_pipe
+6460 exec
+6622 pipealloc
+6661 pipeclose
+6679 pipewrite
+6701 piperead
+6754 memset
+6765 memcmp
+6781 memmove
+6802 memcpy
+6808 strncmp
+6818 strncpy
+6832 safestrcpy
+6851 strlen
+7018 sum
+7030 mpsearch1
+7056 mpsearch
+7080 mpconfig
+7101 mpinit
+7196 lapicw
+7203 lapicinit
+7251 lapicid
+7260 lapiceoi
+7269 microdelay
+7279 lapicstartap
+7324 cmos_read
+7333 fill_rtcdate
+7352 cmostime
+7434 ioapicread
+7441 ioapicwrite
+7451 ioapicinit
+7470 ioapicenable
+7656 kbdgetc
+7696 kbdintr
+7727 printint
+7752 cprintf
+7805 panic
+7829 cgaputc
+7864 consputc
+7890 consoleintr
+7934 consoleread
+7972 consolewrite
+7987 consoleinit
+8019 uartinit
+8051 uartputc
+8063 uartgetc
+8073 uartintr
+8160 SYSCALL
+8161 SYSCALL
+8162 SYSCALL
+8163 SYSCALL
+8164 SYSCALL
+8165 SYSCALL
+8166 SYSCALL
+8167 SYSCALL
+8168 SYSCALL
+8169 SYSCALL
+8170 SYSCALL
+8171 SYSCALL
+8172 SYSCALL
+8173 SYSCALL
+8174 SYSCALL
+8175 SYSCALL
+8176 SYSCALL
+8177 SYSCALL
+8178 SYSCALL
+8179 SYSCALL
+8180 SYSCALL
+8181 SYSCALL
+8182 SYSCALL
+8306 runcmd
+8384 getcmd
+8431 panic
+8438 fork1
+8453 execcmd
+8464 redircmd
+8480 pipecmd
+8501 listcmd
+8514 backcmd
+8530 gettoken
+8575 peek
+8606 parsecmd
+8623 parseline
+8651 parsepipe
+8664 parseredirs
+8701 parseblock
+8717 parseexec
+8752 nulterminate
+8917 bootmain
+8951 waitdisk
+8960 readsect
+8979 readseg
+9003 OUTPUT_FORMAT
+9004 OUTPUT_ARCH
+9005 ENTRY

@@ -1,6 +1,10 @@
 #include "types.h"
 #include "stat.h"
 #include "user.h"
+#include "fs.h"
+#include "mmu.h"
+#include "param.h"
+#include "proc.h"
 
 int
 toint(char* str)
