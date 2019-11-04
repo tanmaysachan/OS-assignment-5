@@ -34,21 +34,17 @@ main(int argc, char *argv[])
   printf(1, "**%d**\n", pid);
   /* int wtime = 0, rtime = 0; */
   int j;
-  setpriority(1);
   for (j = 0; j < 10; j++) {
     int pid = fork();
     if (pid == 0) {
-        setpriority(40-j);
-        /* int new_priority = 40-j; */
         volatile int i;
-        /* printf(1, "process with priority %d chosen\n", new_priority); */
         for(i = 0; i < 100000000; i++){
             ;
         }
         exit();
     } else {
         volatile int i;
-        for(i = 0; i < 100000000; i++){
+        for(i = 0; i < 1000000; i++){
             ;
         }
     }

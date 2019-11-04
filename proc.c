@@ -509,7 +509,7 @@ setpriority(int priority)
 }
 
 // update process rtime and last_check time
-void
+inline void
 update_times(struct proc* p)
 {
   if(p->state == RUNNING)
@@ -594,7 +594,6 @@ scheduler(void)
           if(p->state != RUNNABLE)
             continue;
           if(p->priority == priority_chosen){
-            cprintf("priority chosen to run %d\n", priority_chosen);
             c->proc = p;
             switchuvm(p);
             p->state = RUNNING;
@@ -613,22 +612,27 @@ scheduler(void)
         struct proc *to_run = 0;
         if(sizes[0] != 0){
           to_run = queue_0[heads[0]];
+          cprintf("queue chosen %d, to_run pid %d\n", 0, to_run->pid);
           pop_queue(0);
         }
         else if(sizes[1] != 0){
           to_run = queue_1[heads[1]];
+          cprintf("queue chosen %d, to_run pid %d\n", 1, to_run->pid);
           pop_queue(1);
         }
         else if(sizes[2] != 0){
           to_run = queue_2[heads[2]];
+          cprintf("queue chosen %d, to_run pid %d\n", 2, to_run->pid);
           pop_queue(2);
         }
         else if(sizes[3] != 0){
           to_run = queue_3[heads[3]];
+          cprintf("queue chosen %d, to_run pid %d\n", 3, to_run->pid);
           pop_queue(3);
         }
         else if(sizes[4] != 0){
           to_run = queue_4[heads[4]];
+          cprintf("queue chosen %d, to_run pid %d\n", 4, to_run->pid);
           pop_queue(4);
         }
         if(to_run != 0){
@@ -648,6 +652,7 @@ scheduler(void)
             }
             if(to_run->state == RUNNABLE && to_run->slice_exhausted){
               if(to_run->cur_queue != 4){
+                cprintf("queue demoted! pid %d\n", to_run->pid);
                 add_to_queue(to_run, to_run->cur_queue+1);
               }
               else{
@@ -659,6 +664,10 @@ scheduler(void)
               break;
             }
           }
+
+            if(to_run->pid == 3){
+              cprintf("state of 3!! %d\n", to_run->state);
+            }
         }
         for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
           update_times(p);
@@ -666,6 +675,7 @@ scheduler(void)
             continue;
 
           if(ticks - p->ltime > 50 && p->cur_queue != 0){
+            cprintf("queue promoted! pid %d, ltime = %d, cur time = %d\n", p->pid, p->ltime, ticks);
             p->ltime = ticks;
             remove_from_queue(p);
             add_to_queue(p, p->cur_queue-1);

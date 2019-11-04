@@ -110,7 +110,6 @@ int             growproc(int);
 int             kill(int);
 struct cpu*     mycpu(void);
 struct proc*    myproc();
-void            update_times(struct proc*);
 void            add_to_queue(struct proc*, int);
 void            pop_queue(int);
 void            remove_from_queue(struct proc*);
