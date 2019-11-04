@@ -36,6 +36,16 @@ sys_setpriority(void)
 }
 
 int
+sys_getpinfo(void)
+{
+  struct proc_stat* ps;
+  int pid;
+  if(argptr(0, (void*)&ps, sizeof(struct proc_stat)) || argint(1, &pid) < 0)
+    return -1;
+  return getpinfo((struct proc_stat*)ps, pid);
+}
+
+int
 sys_waitx(void)
 {
   int* wtime;

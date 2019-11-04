@@ -41,12 +41,15 @@ main(int argc, char *argv[])
         for(i = 0; i < 100000000; i++){
             ;
         }
+        struct proc_stat ps;
+        getpinfo(&ps, getpid());
+        printf(1, "pid %d, rtime %d, num_run %d, cur_queue %d\n", ps.pid, ps.runtime, ps.num_run, ps.current_queue);
         exit();
     } else {
-        volatile int i;
-        for(i = 0; i < 1000000; i++){
-            ;
-        }
+      /* volatile int i; */
+      /* for(i = 0; i < 10000; i++){ */
+      /*   ; */
+      /* } */
     }
     /* printf(1, "Rtime is: %d\n", rtime); */
     /* printf(1, "Wtime is: %d\n", wtime); */

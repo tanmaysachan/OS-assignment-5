@@ -57,6 +57,16 @@ struct proc {
   int priority;                // Scheduling priority of the process
   int cur_queue;               // Current queue the process is in for MLFQ scheduling
   uint slice_exhausted;        // Tells us if the process consumed the time slice
+  int num_run;                 // Number of times the process has been run
+  int ticks[5];                // Ticks consumed in each queue
+};
+
+struct proc_stat {
+  int pid;
+  int runtime;
+  int num_run;
+  int current_queue;
+  int ticks[5];
 };
 
 // Process memory is laid out contiguously, low addresses first:

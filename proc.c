@@ -144,6 +144,29 @@ clean_queue(int qno)
   }
 }
 
+int
+getpinfo(struct proc_stat* ps, int pid)
+{
+  acquire(&ptable.lock);
+  struct proc* p;
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->pid == pid){
+      ps->pid = p->pid;
+      ps->runtime = p->rtime;
+      ps->num_run = p->num_run;
+      ps->current_queue = p->cur_queue;
+      int i;
+      for(i = 0; i < 5; i++){
+        ps->ticks[i] = p->ticks[i];
+      }
+      release(&ptable.lock);
+      return 0;
+    }
+  }
+  release(&ptable.lock);
+  return -1;
+}
+
 void
 pinit(void)
 {
@@ -216,6 +239,11 @@ found:
   p->rtime = 0;
   p->last_check = ticks;
   p->priority = 60;
+  p->num_run = 0;
+  int i;
+  for(i = 0; i < 5; i++){
+    p->ticks[i] = 0;
+  }
 
   release(&ptable.lock);
 
@@ -612,27 +640,27 @@ scheduler(void)
         struct proc *to_run = 0;
         if(sizes[0] != 0){
           to_run = queue_0[heads[0]];
-          cprintf("queue chosen %d, to_run pid %d\n", 0, to_run->pid);
+          if(D)cprintf("queue chosen %d, to_run pid %d\n", 0, to_run->pid);
           pop_queue(0);
         }
         else if(sizes[1] != 0){
           to_run = queue_1[heads[1]];
-          cprintf("queue chosen %d, to_run pid %d\n", 1, to_run->pid);
+          if(D)cprintf("queue chosen %d, to_run pid %d\n", 1, to_run->pid);
           pop_queue(1);
         }
         else if(sizes[2] != 0){
           to_run = queue_2[heads[2]];
-          cprintf("queue chosen %d, to_run pid %d\n", 2, to_run->pid);
+          if(D)cprintf("queue chosen %d, to_run pid %d\n", 2, to_run->pid);
           pop_queue(2);
         }
         else if(sizes[3] != 0){
           to_run = queue_3[heads[3]];
-          cprintf("queue chosen %d, to_run pid %d\n", 3, to_run->pid);
+          if(D)cprintf("queue chosen %d, to_run pid %d\n", 3, to_run->pid);
           pop_queue(3);
         }
         else if(sizes[4] != 0){
           to_run = queue_4[heads[4]];
-          cprintf("queue chosen %d, to_run pid %d\n", 4, to_run->pid);
+          if(D)cprintf("queue chosen %d, to_run pid %d\n", 4, to_run->pid);
           pop_queue(4);
         }
         if(to_run != 0){
@@ -646,13 +674,33 @@ scheduler(void)
             switchkvm();
 
             c->proc = 0;
+            int ticks_to_give = 0;
+            switch(to_run->cur_queue){
+              case 0:
+                ticks_to_give = 1;
+                break;
+              case 1:
+                ticks_to_give = 2;
+                break;
+              case 2:
+                ticks_to_give = 4;
+                break;
+              case 3:
+                ticks_to_give = 8;
+                break;
+              case 4:
+                ticks_to_give = 16;
+                break;
+            }
+            to_run->ticks[to_run->cur_queue] += ticks_to_give;
+            to_run->num_run++;
 
             if(to_run->state == RUNNABLE && !to_run->slice_exhausted){
               continue;
             }
             if(to_run->state == RUNNABLE && to_run->slice_exhausted){
               if(to_run->cur_queue != 4){
-                cprintf("queue demoted! pid %d\n", to_run->pid);
+                if(D)cprintf("queue demoted! pid %d\n", to_run->pid);
                 add_to_queue(to_run, to_run->cur_queue+1);
               }
               else{
@@ -666,7 +714,7 @@ scheduler(void)
           }
 
             if(to_run->pid == 3){
-              cprintf("state of 3!! %d\n", to_run->state);
+              if(D)cprintf("state of 3!! %d\n", to_run->state);
             }
         }
         for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
@@ -675,7 +723,7 @@ scheduler(void)
             continue;
 
           if(ticks - p->ltime > 50 && p->cur_queue != 0){
-            cprintf("queue promoted! pid %d, ltime = %d, cur time = %d\n", p->pid, p->ltime, ticks);
+            if(D)cprintf("queue promoted! pid %d, ltime = %d, cur time = %d\n", p->pid, p->ltime, ticks);
             p->ltime = ticks;
             remove_from_queue(p);
             add_to_queue(p, p->cur_queue-1);
