@@ -13,7 +13,6 @@ struct gatedesc idt[256];
 extern uint vectors[];  // in vectors.S: array of 256 entry pointers
 struct spinlock tickslock;
 uint ticks;
-uint cnt_to_yield = 0;
 
 void
 tvinit(void)
@@ -83,6 +82,8 @@ trap(struct trapframe *tf)
   default:
     if(myproc() == 0 || (tf->cs&3) == 0){
       // In kernel, it must be our mistake.
+      if(myproc() == 0)cprintf("SEGFAULT LMAOO");
+      else cprintf("REKT LOL %d yeet\n", myproc()->pid);
       cprintf("unexpected trap %d from cpu %d eip %x (cr2=0x%x)\n",
               tf->trapno, cpuid(), tf->eip, rcr2());
       panic("trap");
@@ -104,8 +105,11 @@ trap(struct trapframe *tf)
   // Force process to give up CPU on clock tick.
   // If interrupts were on while locks held, would need to check nlock.
   if(myproc() && myproc()->state == RUNNING &&
-     tf->trapno == T_IRQ0+IRQ_TIMER && SCHEDFLAG[0] != 'F' && SCHEDFLAG[0] != 'M'){
-    yield();
+     tf->trapno == T_IRQ0+IRQ_TIMER){
+    if(SCHEDFLAG[0] != 'F' && SCHEDFLAG[0] != 'M'){
+      yield();
+    }
+    myproc()->rtime++;
   }
 
   if(SCHEDFLAG[0] == 'M' && myproc()){
@@ -117,44 +121,44 @@ trap(struct trapframe *tf)
       }
     }
     else if(myproc()->cur_queue == 1){
-      if(cnt_to_yield == 1){
+      if(myproc()->cnt_to_yield == 1){
         myproc()->slice_exhausted = 1;
-        cnt_to_yield = 0;
+        myproc()->cnt_to_yield = 0;
         yield();
       }
       if(myproc() && myproc()->state == RUNNING &&
           tf->trapno == T_IRQ0+IRQ_TIMER)
-        cnt_to_yield++;
+        myproc()->cnt_to_yield++;
     }
     else if(myproc()->cur_queue == 2){
-      if(cnt_to_yield == 3){
+      if(myproc()->cnt_to_yield == 3){
         myproc()->slice_exhausted = 1;
-        cnt_to_yield = 0;
+        myproc()->cnt_to_yield = 0;
         yield();
       }
       if(myproc() && myproc()->state == RUNNING &&
           tf->trapno == T_IRQ0+IRQ_TIMER)
-        cnt_to_yield++;
+        myproc()->cnt_to_yield++;
     }
     else if(myproc()->cur_queue == 3){
-      if(cnt_to_yield == 7){
+      if(myproc()->cnt_to_yield == 7){
         myproc()->slice_exhausted = 1;
-        cnt_to_yield = 0;
+        myproc()->cnt_to_yield = 0;
         yield();
       }
       if(myproc() && myproc()->state == RUNNING &&
           tf->trapno == T_IRQ0+IRQ_TIMER)
-        cnt_to_yield++;
+        myproc()->cnt_to_yield++;
     }
     else if(myproc()->cur_queue == 4){
-      if(cnt_to_yield == 15){
+      if(myproc()->cnt_to_yield == 15){
         myproc()->slice_exhausted = 1;
-        cnt_to_yield = 0;
+        myproc()->cnt_to_yield = 0;
         yield();
       }
       if(myproc() && myproc()->state == RUNNING &&
           tf->trapno == T_IRQ0+IRQ_TIMER)
-        cnt_to_yield++;
+        myproc()->cnt_to_yield++;
     }
   }
 

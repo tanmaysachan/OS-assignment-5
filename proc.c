@@ -5,6 +5,7 @@
 #include "mmu.h"
 #include "x86.h"
 #include "proc.h"
+#include "proc_stat.h"
 #include "spinlock.h"
 
 struct {
@@ -17,6 +18,8 @@ struct proc *queue_1[NPROC];
 struct proc *queue_2[NPROC];
 struct proc *queue_3[NPROC];
 struct proc *queue_4[NPROC];
+
+struct spinlock qlocks[5];
 
 int heads[5] = {0, 0, 0, 0, 0};
 int tails[5] = {0, 0, 0, 0, 0};
@@ -52,6 +55,12 @@ add_to_queue(struct proc *p, int qno)
       break;
     default:
       panic("invalid queue requested in add_to_queue");
+  }
+  int i = heads[qno];
+  for(; i != tails[qno]; i = (i+1)%NPROC){
+    if(p->pid == queue[i]->pid){
+      return;
+    }
   }
   queue[tails[qno]] = p;
   tails[qno] = (tails[qno] + 1) % NPROC;
@@ -150,7 +159,7 @@ getpinfo(struct proc_stat* ps, int pid)
   acquire(&ptable.lock);
   struct proc* p;
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-    if(p->pid == pid){
+    if(p && p->pid == pid){
       ps->pid = p->pid;
       ps->runtime = p->rtime;
       ps->num_run = p->num_run;
@@ -237,9 +246,10 @@ found:
   p->pid = nextpid++;
   p->ctime = ticks;
   p->rtime = 0;
-  p->last_check = ticks;
   p->priority = 60;
+  p->cnt_to_yield = 0;
   p->num_run = 0;
+  p->slice_exhausted = 0;
   int i;
   for(i = 0; i < 5; i++){
     p->ticks[i] = 0;
@@ -305,7 +315,6 @@ userinit(void)
   acquire(&ptable.lock);
 
   p->state = RUNNABLE;
-  p->cur_queue = 0;
   add_to_queue(p, 0);
   p->ltime = ticks;
 
@@ -375,7 +384,6 @@ fork(void)
 
   np->state = RUNNABLE;
   add_to_queue(np, 0);
-  np->cur_queue = 0;
   np->ltime = ticks;
 
   release(&ptable.lock);
@@ -412,6 +420,7 @@ exit(void)
   acquire(&ptable.lock);
 
   // Parent might be sleeping in wait().
+  curproc->etime = ticks;
   wakeup1(curproc->parent);
 
   // Pass abandoned children to init.
@@ -425,7 +434,6 @@ exit(void)
 
   // Jump into the scheduler, never to return.
   curproc->state = ZOMBIE;
-  curproc->etime = ticks;
   sched();
   panic("zombie exit");
 }
@@ -536,15 +544,6 @@ setpriority(int priority)
   return old_p;
 }
 
-// update process rtime and last_check time
-inline void
-update_times(struct proc* p)
-{
-  if(p->state == RUNNING)
-    p->rtime += ticks - p->last_check;
-  p->last_check = ticks;
-}
-
 //PAGEBREAK: 42
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
@@ -585,7 +584,6 @@ scheduler(void)
         struct proc *to_run = 0;
         int min_ctime = ticks + 1000;
         for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-          update_times(p);
           if(p->state != RUNNABLE)
             continue;
           
@@ -595,6 +593,7 @@ scheduler(void)
           }
         }
         if(to_run){
+          if(D)cprintf("Process with ctime %d and pid %d running...\n", to_run->ctime, to_run->pid);
           c->proc = to_run;
           switchuvm(to_run);
           to_run->state = RUNNING;
@@ -603,25 +602,69 @@ scheduler(void)
           switchkvm();
 
           c->proc = 0;
+          if(to_run->state == SLEEPING){
+            if(D)cprintf("Process with pid %d slept\n", to_run->pid);
+          }
         }
       }
       break;
 
       case 2:{
         // Priority based scheduler
-        int priority_chosen = 101;
+        /*int priority_chosen = 101;
         for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-          update_times(p);
           if(p->state != RUNNABLE)
             continue;
-          if(p->priority < priority_chosen)
+          if(p->priority < priority_chosen && p->pid > 2)
             priority_chosen = p->priority;
         }
-        for(p = ptable.proc; p < &ptable.proc[NPROC] && priority_chosen != 101; p++){
-          update_times(p);
+        for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
           if(p->state != RUNNABLE)
             continue;
+          if(priority_chosen == 101){
+            if(p->state == RUNNABLE){
+              c->proc = p;
+              switchuvm(p);
+              p->state = RUNNING;
+
+              swtch(&(c->scheduler), p->context);
+              switchkvm();
+
+              c->proc = 0;
+              break;
+            }
+          }
           if(p->priority == priority_chosen){
+            cprintf("priority_chosen %d\n", priority_chosen);
+            c->proc = p;
+            switchuvm(p);
+            p->state = RUNNING;
+
+            swtch(&(c->scheduler), p->context);
+            switchkvm();
+
+            c->proc = 0;
+          }
+        }
+        */
+
+        struct proc *p, *tmp;
+        for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+          if(p->state != RUNNABLE){
+            continue;
+          }
+          int min_priority = 101;
+          for(tmp = ptable.proc; tmp < &ptable.proc[NPROC]; tmp++){
+            if(tmp->state != RUNNABLE){
+              continue;
+            }
+            if(tmp->priority < min_priority){
+              min_priority = tmp->priority;
+            }
+          }
+          /* cprintf("min_priority %d\n", min_priority); */
+          if(p->priority == min_priority){
+            cprintf("priority_chosen %d\n", min_priority);
             c->proc = p;
             switchuvm(p);
             p->state = RUNNING;
@@ -706,19 +749,16 @@ scheduler(void)
               else{
                 add_to_queue(to_run, to_run->cur_queue);
               }
+              to_run->slice_exhausted = 0;
               break;
             }
             if(to_run->state != RUNNABLE){
+              if(D && to_run)cprintf("Process slept or finished! pid %d, number of times run %d\n", to_run->pid, to_run->num_run);
               break;
             }
           }
-
-            if(to_run->pid == 3){
-              if(D)cprintf("state of 3!! %d\n", to_run->state);
-            }
         }
         for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-          update_times(p);
           if(p->state != RUNNABLE)
             continue;
 
@@ -735,7 +775,6 @@ scheduler(void)
       case 4:{
         // original round-robin based scheduler
         for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-          update_times(p);
           if(p->state != RUNNABLE)
             continue;
 
@@ -870,6 +909,7 @@ wakeup1(void *chan)
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
     if(p->state == SLEEPING && p->chan == chan){
       p->state = RUNNABLE;
+      p->ltime = ticks;
       add_to_queue(p, p->cur_queue);
     }
 }

@@ -52,21 +52,13 @@ struct proc {
   uint ctime;                  // Process creation time
   uint etime;                  // Process end time
   uint rtime;                  // Total process run time
-  uint last_check;             // Time when the process's times were last updated
   uint ltime;                  // Time when the process was last running
   int priority;                // Scheduling priority of the process
   int cur_queue;               // Current queue the process is in for MLFQ scheduling
   uint slice_exhausted;        // Tells us if the process consumed the time slice
+  uint cnt_to_yield;           // Tells us how many ticks the process has consumed without yielding
   int num_run;                 // Number of times the process has been run
   int ticks[5];                // Ticks consumed in each queue
-};
-
-struct proc_stat {
-  int pid;
-  int runtime;
-  int num_run;
-  int current_queue;
-  int ticks[5];
 };
 
 // Process memory is laid out contiguously, low addresses first:
