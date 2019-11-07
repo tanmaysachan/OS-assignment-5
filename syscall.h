@@ -23,3 +23,4 @@
 #define SYS_waitx  22
 #define SYS_setpriority 23
 #define SYS_getpinfo 24
+#define SYS_displayqueues 25

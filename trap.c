@@ -82,7 +82,7 @@ trap(struct trapframe *tf)
   default:
     if(myproc() == 0 || (tf->cs&3) == 0){
       // In kernel, it must be our mistake.
-      if(myproc() == 0)cprintf("SEGFAULT LMAOO");
+      if(myproc() == 0)displayqueues();
       else cprintf("REKT LOL %d yeet\n", myproc()->pid);
       cprintf("unexpected trap %d from cpu %d eip %x (cr2=0x%x)\n",
               tf->trapno, cpuid(), tf->eip, rcr2());

@@ -15,6 +15,13 @@ sys_fork(void)
 }
 
 int
+sys_displayqueues(void)
+{
+  displayqueues();
+  return 0;
+}
+
+int
 sys_exit(void)
 {
   exit();

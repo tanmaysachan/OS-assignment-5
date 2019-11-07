@@ -8,6 +8,7 @@ int exit(void) __attribute__((noreturn));
 int wait(void);
 int waitx(int*, int*);
 int pipe(int*);
+void displayqueues(void);
 int write(int, const void*, int);
 int read(int, void*, int);
 int close(int);

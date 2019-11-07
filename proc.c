@@ -19,8 +19,6 @@ struct proc *queue_2[NPROC];
 struct proc *queue_3[NPROC];
 struct proc *queue_4[NPROC];
 
-struct spinlock qlocks[5];
-
 int heads[5] = {0, 0, 0, 0, 0};
 int tails[5] = {0, 0, 0, 0, 0};
 int sizes[5] = {0, 0, 0, 0, 0};
@@ -32,6 +30,8 @@ extern void forkret(void);
 extern void trapret(void);
 
 static void wakeup1(void *chan);
+
+int preempt = 0;
 
 void
 add_to_queue(struct proc *p, int qno)
@@ -56,12 +56,7 @@ add_to_queue(struct proc *p, int qno)
     default:
       panic("invalid queue requested in add_to_queue");
   }
-  int i = heads[qno];
-  for(; i != tails[qno]; i = (i+1)%NPROC){
-    if(p->pid == queue[i]->pid){
-      return;
-    }
-  }
+
   queue[tails[qno]] = p;
   tails[qno] = (tails[qno] + 1) % NPROC;
   sizes[qno]++;
@@ -70,6 +65,7 @@ add_to_queue(struct proc *p, int qno)
 
 void
 pop_queue(int qno){
+  if(sizes[qno] == 0) return;
   heads[qno] = (heads[qno] + 1) % NPROC;
   sizes[qno]--;
 }
@@ -101,56 +97,72 @@ remove_from_queue(struct proc *p)
 
   int i = heads[qno];
   struct proc *tmp;
+  int to_remove = -1;
   for(; i != tails[qno]; i = (i+1)%NPROC){
     tmp = queue[i];
     if(tmp->pid == p->pid){
-      queue[i] = 0;
+      to_remove = i;
       sizes[qno]--;
       break;
     }
   }
-  clean_queue(qno);
-}
 
-void
-clean_queue(int qno)
-{
-  struct proc **queue;
-  switch(qno){
-    case 0:
-      queue = queue_0;
-      break;
-    case 1:
-      queue = queue_1;
-      break;
-    case 2:
-      queue = queue_2;
-      break;
-    case 3:
-      queue = queue_3;
-      break;
-    case 4:
-      queue = queue_4;
-      break;
-    default:
-      panic("invalid queue requested in clean_queue");
-  }
-
-  int i;
+  struct proc *old;
   for(i = heads[qno]; i != tails[qno]; i = (i+1)%NPROC){
-    if(queue[i] == 0){
+    if(i == to_remove){
       int j;
-      struct proc *tmp;
-      struct proc *old;
       tmp = queue[heads[qno]];
       for(j = heads[qno]; j != i; j = (j+1)%NPROC){
         old = queue[(j+1)%NPROC];
         queue[(j+1)%NPROC] = tmp;
         tmp = old;
       }
-      heads[qno]++;
+      heads[qno] = (heads[qno] + 1)%NPROC;
+      break;
     }
   }
+}
+
+void
+displayqueues()
+{
+  acquire(&ptable.lock);
+  cprintf("Running proc %d\n", myproc()->pid);
+  cprintf("queue 0 [");
+  for(int i = heads[0]; i != tails[0]; i = (i+1)%NPROC){
+    cprintf("%d,", queue_0[i]->pid);
+  }
+  cprintf("] ");
+  cprintf("qsize = %d\n", sizes[0]);
+
+  cprintf("queue 1 [");
+  for(int i = heads[1]; i != tails[1]; i = (i+1)%NPROC){
+    cprintf("%d,", queue_1[i]->pid);
+  }
+  cprintf("] ");
+  cprintf("qsize = %d\n", sizes[1]);
+  
+  cprintf("queue 2 [");
+  for(int i = heads[2]; i != tails[2]; i = (i+1)%NPROC){
+    cprintf("%d,", queue_2[i]->pid);
+  }
+  cprintf("] ");
+  cprintf("qsize = %d\n", sizes[2]);
+
+  cprintf("queue 3 [");
+  for(int i = heads[3]; i != tails[3]; i = (i+1)%NPROC){
+    cprintf("%d,", queue_3[i]->pid);
+  }
+  cprintf("] ");
+  cprintf("qsize = %d\n", sizes[3]);
+
+  cprintf("queue 4 [");
+  for(int i = heads[4]; i != tails[4]; i = (i+1)%NPROC){
+    cprintf("%d,", queue_4[i]->pid);
+  }
+  cprintf("] ");
+  cprintf("qsize = %d\n", sizes[4]);
+  release(&ptable.lock);
 }
 
 int
@@ -315,7 +327,7 @@ userinit(void)
   acquire(&ptable.lock);
 
   p->state = RUNNABLE;
-  add_to_queue(p, 0);
+  if(SCHEDFLAG[0]=='M')add_to_queue(p, 0);
   p->ltime = ticks;
 
   release(&ptable.lock);
@@ -383,7 +395,7 @@ fork(void)
   acquire(&ptable.lock);
 
   np->state = RUNNABLE;
-  add_to_queue(np, 0);
+  if(SCHEDFLAG[0]=='M')add_to_queue(np, 0);
   np->ltime = ticks;
 
   release(&ptable.lock);
@@ -539,6 +551,7 @@ setpriority(int priority)
   int old_p = curproc->priority;
   curproc->priority = priority;
   if(priority < old_p){
+    preempt = 1;
     yield();
   }
   return old_p;
@@ -600,6 +613,7 @@ scheduler(void)
 
           swtch(&(c->scheduler), to_run->context);
           switchkvm();
+          p->num_run++;
 
           c->proc = 0;
           if(to_run->state == SLEEPING){
@@ -611,66 +625,26 @@ scheduler(void)
 
       case 2:{
         // Priority based scheduler
-        /*int priority_chosen = 101;
+        int priority_chosen = 101;
         for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
           if(p->state != RUNNABLE)
             continue;
-          if(p->priority < priority_chosen && p->pid > 2)
+          if(p->priority < priority_chosen){
             priority_chosen = p->priority;
+          }
         }
         for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
           if(p->state != RUNNABLE)
             continue;
-          if(priority_chosen == 101){
-            if(p->state == RUNNABLE){
-              c->proc = p;
-              switchuvm(p);
-              p->state = RUNNING;
-
-              swtch(&(c->scheduler), p->context);
-              switchkvm();
-
-              c->proc = 0;
-              break;
-            }
-          }
           if(p->priority == priority_chosen){
-            cprintf("priority_chosen %d\n", priority_chosen);
+            if(D)cprintf("priority_chosen %d on processor %d\n", priority_chosen, c->apicid);
             c->proc = p;
             switchuvm(p);
             p->state = RUNNING;
 
             swtch(&(c->scheduler), p->context);
             switchkvm();
-
-            c->proc = 0;
-          }
-        }
-        */
-
-        struct proc *p, *tmp;
-        for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-          if(p->state != RUNNABLE){
-            continue;
-          }
-          int min_priority = 101;
-          for(tmp = ptable.proc; tmp < &ptable.proc[NPROC]; tmp++){
-            if(tmp->state != RUNNABLE){
-              continue;
-            }
-            if(tmp->priority < min_priority){
-              min_priority = tmp->priority;
-            }
-          }
-          /* cprintf("min_priority %d\n", min_priority); */
-          if(p->priority == min_priority){
-            cprintf("priority_chosen %d\n", min_priority);
-            c->proc = p;
-            switchuvm(p);
-            p->state = RUNNING;
-
-            swtch(&(c->scheduler), p->context);
-            switchkvm();
+            p->num_run++;
 
             c->proc = 0;
           }
@@ -739,30 +713,22 @@ scheduler(void)
             to_run->num_run++;
 
             if(to_run->state == RUNNABLE && !to_run->slice_exhausted){
-              continue;
+              panic("lmao");
             }
-            if(to_run->state == RUNNABLE && to_run->slice_exhausted){
-              if(to_run->cur_queue != 4){
-                if(D)cprintf("queue demoted! pid %d\n", to_run->pid);
-                add_to_queue(to_run, to_run->cur_queue+1);
-              }
-              else{
-                add_to_queue(to_run, to_run->cur_queue);
-              }
-              to_run->slice_exhausted = 0;
-              break;
-            }
+
             if(to_run->state != RUNNABLE){
               if(D && to_run)cprintf("Process slept or finished! pid %d, number of times run %d\n", to_run->pid, to_run->num_run);
-              break;
             }
+
+            to_run->slice_exhausted = 0;
+            break;
           }
         }
         for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
           if(p->state != RUNNABLE)
             continue;
 
-          if(ticks - p->ltime > 50 && p->cur_queue != 0){
+          if(ticks - p->ltime > 30 && p->cur_queue != 0){
             if(D)cprintf("queue promoted! pid %d, ltime = %d, cur time = %d\n", p->pid, p->ltime, ticks);
             p->ltime = ticks;
             remove_from_queue(p);
@@ -787,6 +753,7 @@ scheduler(void)
 
           swtch(&(c->scheduler), p->context);
           switchkvm();
+          p->num_run++;
 
           // Process is done running for now.
           // It should have changed its p->state before coming back.
@@ -833,6 +800,13 @@ yield(void)
 {
   acquire(&ptable.lock);  //DOC: yieldlock
   myproc()->state = RUNNABLE;
+  if(SCHEDFLAG[0] == 'M'){
+    if(myproc()->cur_queue == 4){
+      add_to_queue(myproc(), 4);
+    }else{
+      add_to_queue(myproc(), myproc()->cur_queue+1);
+    }
+  }
   sched();
   release(&ptable.lock);
 }
@@ -884,7 +858,6 @@ sleep(void *chan, struct spinlock *lk)
   // Go to sleep.
   p->chan = chan;
   p->state = SLEEPING;
-  remove_from_queue(p);
 
   sched();
 
@@ -910,7 +883,7 @@ wakeup1(void *chan)
     if(p->state == SLEEPING && p->chan == chan){
       p->state = RUNNABLE;
       p->ltime = ticks;
-      add_to_queue(p, p->cur_queue);
+      if(SCHEDFLAG[0]=='M')add_to_queue(p, p->cur_queue);
     }
 }
 
@@ -936,8 +909,10 @@ kill(int pid)
     if(p->pid == pid){
       p->killed = 1;
       // Wake process from sleep if necessary.
-      if(p->state == SLEEPING)
+      if(p->state == SLEEPING){
         p->state = RUNNABLE;
+        add_to_queue(p, p->cur_queue);
+      }
       release(&ptable.lock);
       return 0;
     }
